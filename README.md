@@ -37,6 +37,7 @@
 
 ### Software Workflow  
 
+```mermaid
 graph TD
   A[Hiker Device] -->|LoRa| B(Base Station)
   B -->|Serial| C(Python Backend)
