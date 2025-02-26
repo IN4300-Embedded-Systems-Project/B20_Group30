@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hiker Tracker - Mountain Safety System</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+      :root {
+        --primary-blue: #2563eb;
+        --alert-red: #dc2626;
+        --text-dark: #1f2937;
+        --text-light: #6b7280;
+        --background: #f8fafc;
+      }
+
+      body {
+        font-family: 'Inter', sans-serif;
+        background-color: var(--background);
+        margin: 0;
+        padding: 0;
+        color: var(--text-dark);
+      }
+
+      header {
+        background-color: var(--primary-blue);
+        color: white;
+        padding: 1.2rem 2rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        display: flex;
+        align-items: center;
+      }
+
+      .logo {
+        font-weight: 600;
+        font-size: 1.5rem;
+        letter-spacing: -0.5px;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
+
+      .logo::before {
+        content: '🚶';
+        font-size: 1.8rem;
+      }
+
+      #container {
+        display: flex;
+        gap: 1.5rem;
+        padding: 1.5rem;
+        max-width: 1400px;
+        margin: 0 auto;
+      }
+
+      #hiker-list {
+        width: 320px;
+        min-width: 320px;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        height: calc(100vh - 120px);
+        display: flex;
+        flex-direction: column;
+      }
+
+      .list-header {
+        padding: 1.2rem;
+        border-bottom: 1px solid #e5e7eb;
+      }
+
+      .list-header h3 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--text-dark);
+      }
+
+      .hikers-container {
+        flex: 1;
+        overflow-y: auto;
+        padding: 0 1.2rem;
+      }
+
+      .hiker-info {
+        padding: 1rem;
+        margin: 0.8rem 0;
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+        transition: all 0.2s ease;
+        cursor: pointer;
+        position: relative;
+      }
+
+      .hiker-info:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      }
+
+      .hiker-info.help {
+        border-left: 4px solid var(--alert-red);
+        background-color: #fef2f2;
+      }
+
+      .hiker-id {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--primary-blue);
+        margin-bottom: 0.4rem;
+      }
+
+      .hiker-status {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        font-size: 0.8rem;
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+        text-transform: uppercase;
+        font-weight: 500;
+      }
+
+      .status-normal {
+        color: #059669;
+        background-color: #ecfdf5;
+      }
+
+      .status-help {
+        color: var(--alert-red);
+        background-color: #fee2e2;
+      }
+
+      .hiker-detail {
+        font-size: 0.875rem;
+        color: var(--text-light);
+        line-height: 1.5;
+      }
+
+      .hiker-detail strong {
+        color: var(--text-dark);
+        font-weight: 500;
+      }
+
+      #map {
+        flex: 1;
+        height: calc(100vh - 120px);
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        z-index: 1;
+      }
+
+      /* Custom Scrollbar */
+      ::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+      }
+
+      ::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+      }
+
+      @media (max-width: 768px) {
+        #container {
+          flex-direction: column;
+          padding: 1rem;
+        }
+
+        #hiker-list {
+          width: 100%;
+          height: 300px;
+        }
+
+        #map {
+          height: 400px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="logo">HikerTraker Pro</div>
+    </header>
+    <div id="container">
+      <div id="hiker-list">
+        <div class="list-header">
+          <h3>Active Hikers (${Object.keys(hikers).length})</h3>
+        </div>
+        <div class="hikers-container"></div>
+      </div>
+      <div id="map"></div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+      // Initialize Map
+      let map = L.map('map').setView([20, 0], 2);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(map);
+
+      let hikers = {}, markers = {}, paths = {}, hikerData = {}, colors = {};
+
+      function getRandomColor() {
+        return `hsl(${Math.random() * 360}, 70%, 45%)`;
+      }
+
+      fetch('/hikers.json')
+        .then(response => response.json())
+        .then(data => hikerData = data);
+
+      const socket = new WebSocket('ws://localhost:5001');
+
+      socket.onmessage = (event) => {
+        let data = JSON.parse(event.data);
+        let { id, lat, lon, status } = data;
+        const timestamp = new Date().toLocaleTimeString();
+
+        if (!colors[id]) colors[id] = getRandomColor();
+        if (!hikers[id]) hikers[id] = { path: [] };
+        hikers[id].path.push([lat, lon]);
+
+        // Update marker
+        if (!markers[id]) {
+        markers[id] = L.marker([lat, lon], {
+            icon: L.divIcon({
+                className: 'hiker-marker',
+                html: `<div style="font-size: 36px;">🚶</div>`, // Increase font size
+                iconSize: [40, 40] // Adjust icon size to fit the larger emoji
+            })
+        }).addTo(map).bindPopup(`<b>Hiker ${id}</b><br>Status: ${status}`);
+        } else {
+            markers[id].setLatLng([lat, lon]);
+        }
+
+        // Update path
+        if (paths[id]) map.removeLayer(paths[id]);
+        paths[id] = L.polyline(hikers[id].path, {
+          color: colors[id],
+          weight: 2,
+          opacity: 0.7
+        }).addTo(map);
+
+        // Update hiker list
+        const hiker = hikerData[id] || { name: 'Unknown', age: 'N/A', contact: 'N/A' };
+        let hikerElement = document.getElementById(`hiker-${id}`);
+        
+        if (!hikerElement) {
+          hikerElement = document.createElement('div');
+          hikerElement.id = `hiker-${id}`;
+          hikerElement.className = 'hiker-info';
+          hikerElement.onclick = () => map.setView([lat, lon], 12);
+          document.querySelector('.hikers-container').appendChild(hikerElement);
+        }
+
+        hikerElement.className = `hiker-info ${status === 'HELP' ? 'help' : ''}`;
+        hikerElement.innerHTML = `
+          <div class="hiker-id">Hiker #${id}</div>
+          <div class="hiker-status ${status === 'HELP' ? 'status-help' : 'status-normal'}">
+            ${status === 'HELP' ? 'NEEDS HELP' : 'NORMAL'}
+          </div>
+          <div class="hiker-detail">
+            <strong>Name:</strong> ${hiker.name}<br>
+            <strong>Age:</strong> ${hiker.age}<br>
+            <strong>Contact:</strong> ${hiker.contact}<br>
+            <strong>Last Update:</strong> ${timestamp}<br>
+            <strong>Coordinates:</strong><br>
+            ${lat.toFixed(6)}, ${lon.toFixed(6)}
+          </div>
+        `;
+
+        // Update hiker count
+        document.querySelector('.list-header h3').textContent = 
+          `Active Hikers (${Object.keys(hikers).length})`;
+      };
+    </script>
+  </body>
+</html>
