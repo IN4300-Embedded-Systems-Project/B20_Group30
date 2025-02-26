@@ -1,7 +1,6 @@
-# Batch20_Group30
 
 # LoRa-Based Hiker Tracking System  
-![Project Banner](<ADD DIAGRAM PATH>)  
+![Project Banner](<Docs/Banner.png>)  
 *A decentralized IoT system to track hikers in remote areas with no cellular coverage.*  
 
 ---
@@ -22,7 +21,7 @@
 
 ## System Architecture  
 ### Hardware Design  
-![Hardware Block Diagram](<Docs\Block Diagram.png>)  
+![Hardware Block Diagram](<Docs/Diagram.jpeg>)  
 
 1. **Hiker Device (Transmitter)**:  
    - **Arduino Nano**: Processes GPS data and manages LoRa.  
@@ -33,7 +32,9 @@
 2. **Base Station (Receiver)**:  
    - **Arduino Nano**: Receives and forwards data to PC.  
    - **LoRa SX1278**: Listens for hiker transmissions.  
-   - **PC**: Runs Python backend and React frontend.  
+   - **PC**: Runs Python backend and React frontend.
+
+![Circuit Diagram](<Docs/Block Diagram.png>)  
 
 ### Software Workflow  
 
